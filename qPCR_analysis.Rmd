@@ -1,0 +1,60 @@
+---
+title: "Finlayson Pilot qPCR Analysis"
+author: "Kaelyn Nannini"
+date: "6/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load libraries}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r Import and filter data}
+#Load data
+cqres <- read.csv("2022-06-03_cq_results.csv", stringsAsFactors = T) #replace "2022-06-03_cq_results.csv" with file name
+
+head(cqres)
+
+#filter the data to only include the information necessary for analysis
+cq <- cqres %>%
+  select(Target, Sample, Cq) %>% 
+  group_by(Target, Sample) %>%
+  summarise(mean_cq = mean(Cq)) #collapse by target and sample to get the average Cq
+
+head(cq) #preview data
+```
+
+```{r Calculate Relative Quantification}
+#calculate relative quantification of S. Mutans and S. Sobrinus by using the delta delta equation
+quant <- cq %>%
+  pivot_wider(names_from = "Target", values_from = c("mean_cq")) %>%
+  mutate(N16S = (2**-coalesce(`16S`-`16S`)*100), NMut= (2**-coalesce(Mut - `16S`)*100), Sob = (2**-coalesce(Sob_alt -`16S`)*100)) %>%
+  select(Sample, N16S, NMut, Sob) %>%
+  pivot_longer(cols = N16S:Sob, names_to = "Target")
+  
+quant$Target[quant$Target == "N16S"] = "16S"
+quant$Target[quant$Target == "NMut"] = "Mut"
+
+head(quant) #preview data
+```
+
+```{r Plot}
+#Plot data to visualize
+ggplot(quant, aes(x=Sample, y = value, color = Target)) +
+  geom_bar(stat = "identity", position = position_dodge())
+```
+
+```{r Plot without 16S}
+mutnsob <- quant %>%
+  filter(Target != "16S")
+
+ggplot(mutnsob, aes(x=Sample, y = value, color = Target)) +
+  geom_bar(stat = "identity", position = position_dodge())
+```
+
