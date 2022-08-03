@@ -34,10 +34,13 @@ head(cq) #preview data
 #calculate relative quantification of S. Mutans and S. Sobrinus by using the delta delta equation
 quant <- cq %>%
   pivot_wider(names_from = "Target", values_from = c("mean_cq")) %>%
-  mutate(N16S = (2**-coalesce(`16S`-`16S`)*100), NMut= (2**-coalesce(Mut - `16S`)*100), Sob = (2**-coalesce(Sob_alt -`16S`)*100)) %>%
-  select(Sample, N16S, NMut, Sob) %>%
+  mutate(N16S = (2**-coalesce(`16S`-`16S`)*100),       #For each target, subtract the standard from the target and use the deltadelta equation
+         NMut= (2**-coalesce(Mut - `16S`)*100),        #Using the same name for the mutated columns as the original columns will make things difficult
+         Sob = (2**-coalesce(Sob_alt -`16S`)*100)) %>%
+  select(Sample, N16S, NMut, Sob) %>%                 #Select only the sample and mutated columns (List each target)
   pivot_longer(cols = N16S:Sob, names_to = "Target")
   
+#This step is NOT necessary. This renames the specified mutated columns into more readable names
 quant$Target[quant$Target == "N16S"] = "16S"
 quant$Target[quant$Target == "NMut"] = "Mut"
 
@@ -51,6 +54,7 @@ ggplot(quant, aes(x=Sample, y = value, color = Target)) +
 ```
 
 ```{r Plot without 16S}
+#filter out 16S
 mutnsob <- quant %>%
   filter(Target != "16S")
 
