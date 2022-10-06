@@ -1,5 +1,5 @@
 ---
-title: "Finlayson Pilot qPCR Analysis"
+title: "qPCR Analysis"
 author: "Kaelyn Nannini"
 date: "6/6/2022"
 output: html_document
