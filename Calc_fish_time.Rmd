@@ -1,0 +1,78 @@
+---
+title: "Test Script"
+author: "Kaelyn"
+date: "2023-05-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load libaries}
+library(dplyr)
+library(DescTools) #needed for SecToHms
+```
+
+```{r Load data}
+#read in data
+fish <- read.csv("fish_data.csv")
+
+#combine Date and Time columns and convert to POSTIX class
+fish$DateTime <- paste(fish$Date, fish$Time)
+fish$DateTime <- strptime(fish$DateTime, format = "%m/%d/%Y %H:%M:%S", tz = "GMT")
+```
+
+```{r Process data}
+#Calculate time difference of fish with the previous fish and select the relevant columns
+fish_process <- fish %>%
+  mutate(time_diff = as.double(difftime(DateTime, lag(DateTime,1)))) %>%
+  select(Structure, FishID, time_diff)
+```
+
+```{r Process data with loop}
+#for the same fish in the same structure, if the time difference is greater than n seconds, include data as a new row in the dataframe with the total amount of time
+
+sum <- 0
+n <- 1800 #replace 1800 with desired amount of seconds
+df <- data.frame(matrix(nrow = 0, ncol = 3))
+
+for(i in 2:nrow(fish_process)) {
+  if(fish_process$Structure[i] == fish_process$Structure[i-1] && fish_process$FishID[i] == fish_process$FishID[i-1]) { #check if fish and structure are the same
+      #if the time is less than the cutoff (n), update the total time,
+      #otherwise, create a vector with the Structure, FishID, and total time
+      #add new row to the dataframe and reset the sum if the previous value is 
+      #not negative or greater than the cutoff (or else it will add in an extra 0)
+      if(fish_process$time_diff[i] < n) {
+        sum = sum + fish_process$time_diff[i]
+      } else if(fish_process$time_diff[i] > n && fish_process$time_diff[i-1] >= 0 && fish_process$time_diff[i-1] < n) {
+        row <- c(fish_process$Structure[i], fish_process$FishID[i], sum)
+        df <- rbind(df, row)
+        sum <- 0
+      }
+  } else { #if the fish and/or structure aren't the same, add a row with
+           #previous fish information and 
+    row <- c(fish_process$Structure[i-1], fish_process$FishID[i-1], sum)
+    df <- rbind(df, row)
+    sum <- 0
+  }
+  if(i == nrow(fish_process)) {
+    row <- c(fish_process$Structure[i], fish_process$FishID[i], sum)
+        df <- rbind(df, row)
+  }
+  
+}
+
+colnames(df) <- c("Structure", "Fish_ID", "Total_Time")
+df$Total_Time[df$Total_Time == 0] <- 1 #if time is 0, round to one second
+
+#change seconds to Hours, Minutes, Seconds
+fish_final <- df %>%
+  mutate(Duration = SecToHms(Total_Time)) %>%
+  select(Structure, Fish_ID, Duration)
+```
+
+```{r Output Data}
+write.csv(fish_final, "Fish_Duration.csv", row.names = FALSE)
+```
+
